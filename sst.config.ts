@@ -16,6 +16,11 @@ export default $config({
     };
   },
   async run() {
+    // Secrets
+    const databaseUrl = new sst.Secret("DatabaseUrl");
+    const googleClientId = new sst.Secret("GoogleClientId");
+    const googleClientSecret = new sst.Secret("GoogleClientSecret");
+
     // DynamoDB Table for Masjid Directory
     const masjidTable = new sst.aws.Dynamo("MasjidDirectory", {
       fields: {
@@ -40,7 +45,7 @@ export default $config({
     const api = new sst.aws.ApiGatewayV2("Api");
     api.route("$default", {
       handler: "src/index.handler",
-      link: [masjidTable],
+      link: [masjidTable, databaseUrl, googleClientId, googleClientSecret],
     });
 
     return {

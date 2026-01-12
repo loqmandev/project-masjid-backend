@@ -14,6 +14,69 @@ export async function getMasjidById(masjidId: string) {
   return result.Item;
 }
 
+// 1b. Check-in to a specific masjid (verify proximity)
+export async function checkinToMasjid(
+  masjidId: string,
+  userLat: number,
+  userLng: number
+): Promise<{
+  success: boolean;
+  masjid?: Record<string, unknown>;
+  distanceM?: number;
+  message: string;
+}> {
+  // Get masjid data
+  const masjid = await getMasjidById(masjidId);
+
+  if (!masjid) {
+    return { success: false, message: "Masjid not found" };
+  }
+
+  const masjidLat = masjid.lat as number;
+  const masjidLng = masjid.lng as number;
+  const checkinRadiusM = (masjid.checkinRadiusM as number) || 100;
+
+  // Calculate distance
+  const distanceKm = haversineDistance(userLat, userLng, masjidLat, masjidLng);
+  const distanceM = Math.round(distanceKm * 1000);
+
+  // Check if within check-in radius
+  if (distanceM > checkinRadiusM) {
+    return {
+      success: false,
+      distanceM,
+      message: `Too far from masjid. You are ${distanceM}m away, must be within ${checkinRadiusM}m`,
+    };
+  }
+
+  // TODO: Insert check-in record to PostgreSQL
+  // const checkinRecord = {
+  //   id: generateUUID(),
+  //   masjidId,
+  //   userId: currentUser.id,
+  //   checkinTime: new Date().toISOString(),
+  //   lat: userLat,
+  //   lng: userLng,
+  //   distanceM,
+  // };
+  // await db.insert(checkins).values(checkinRecord);
+
+  return {
+    success: true,
+    masjid: {
+      masjidId: masjid.masjidId,
+      name: masjid.name,
+      address: masjid.address,
+      districtName: masjid.districtName,
+      stateName: masjid.stateName,
+      lat: masjidLat,
+      lng: masjidLng,
+    },
+    distanceM,
+    message: "Check-in successful",
+  };
+}
+
 // 2. Get nearby masjids (flexible radius, capped at MAX_RADIUS_KM)
 const MAX_RADIUS_KM = 5;
 const DEFAULT_RADIUS_KM = 5;

@@ -2,14 +2,19 @@ import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
 import {
   getMasjidById,
+  checkinToMasjid,
   getNearbyMasjids,
   getCheckinEligibleMasjids,
   getMasjidsByState,
   getMasjidsByDistrict,
   searchMasjidsByName,
 } from "./services/masjid.service";
+import { auth } from "./lib/auth";
 
 const app = new Hono();
+
+// better auth handler
+app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 // Health check
 app.get("/", (c) => c.json({ status: "ok", service: "masjid-go-api" }));
@@ -25,6 +30,7 @@ app.get("/masjids/nearby", async (c) => {
   }
 
   const masjids = await getNearbyMasjids(lat, lng, radius);
+
   return c.json(masjids);
 });
 
@@ -59,6 +65,25 @@ app.get("/masjids/:id", async (c) => {
   const masjid = await getMasjidById(c.req.param("id"));
   if (!masjid) return c.json({ error: "Masjid not found" }, 404);
   return c.json(masjid);
+});
+
+// 1b. Check-in to a specific masjid
+app.post("/masjids/:id/checkin", async (c) => {
+  const masjidId = c.req.param("id");
+  const body = await c.req.json<{ lat: number; lng: number }>();
+
+  if (!body.lat || !body.lng) {
+    return c.json({ success: false, message: "lat and lng are required" }, 400);
+  }
+
+  const result = await checkinToMasjid(masjidId, body.lat, body.lng);
+
+  if (!result.success) {
+    const status = result.message === "Masjid not found" ? 404 : 403;
+    return c.json(result, status);
+  }
+
+  return c.json(result);
 });
 
 // 3. Get masjids by state

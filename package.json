@@ -7,13 +7,17 @@
     "deploy:prod": "sst deploy --stage production",
     "remove": "sst remove",
     "seed": "tsx scripts/seed-masjids.ts",
-    "update:checkin-radius": "tsx scripts/update-checkin-radius.ts"
+    "update:checkin-radius": "tsx scripts/update-checkin-radius.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "devDependencies": {
     "@types/aws-lambda": "8.10.159",
     "@types/ngeohash": "^0.6.8",
     "@types/node": "^25.0.5",
     "csv-parse": "^6.1.0",
+    "drizzle-kit": "^0.31.8",
     "esbuild": "^0.21.4",
     "npm-run-all2": "^6.2.0",
     "tsx": "^4.21.0"
@@ -22,8 +26,13 @@
     "@aws-sdk/client-dynamodb": "^3.966.0",
     "@aws-sdk/credential-providers": "^3.966.0",
     "@aws-sdk/lib-dynamodb": "^3.966.0",
+    "@better-auth/expo": "^1.4.10",
+    "@neondatabase/serverless": "^1.0.2",
+    "better-auth": "^1.4.10",
+    "drizzle-orm": "^0.45.1",
     "hono": "^4.11.3",
     "ngeohash": "^0.6.3",
+    "postgres": "^3.4.8",
     "sst": "3.17.25"
   }
 }
