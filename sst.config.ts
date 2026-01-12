@@ -45,7 +45,7 @@ export default $config({
     const api = new sst.aws.ApiGatewayV2("Api");
     api.route("$default", {
       handler: "src/index.handler",
-      link: [masjidTable, databaseUrl, googleClientId, googleClientSecret],
+      link: [api, masjidTable, databaseUrl, googleClientId, googleClientSecret],
     });
 
     return {
