@@ -11,7 +11,7 @@ export const auth = betterAuth({
         schema: schema,
     }),
     trustedOrigins: [
-        "projectmasjidmobile://",
+        "jejakmasjidmobile://",
         "exp://",
         "exp://**",
     ],
