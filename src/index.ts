@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
+import { HTTPException } from "hono/http-exception";
+import type { Context } from "hono";
 import {
   getMasjidById,
   checkinToMasjid,
@@ -9,7 +11,37 @@ import {
   getMasjidsByDistrict,
   searchMasjidsByName,
 } from "./services/masjid.service";
+import {
+  getOrCreateUserProfile,
+  getUserProfileWithUser,
+  updateUserProfile,
+} from "./services/user.service";
+import {
+  performCheckin,
+  performCheckout,
+  getActiveCheckinByUserId,
+  getCheckinHistory,
+  getMasjidStats,
+} from "./services/checkin.service";
+import {
+  getAllAchievements,
+  getUserAchievements,
+} from "./services/achievement.service";
+import {
+  getMonthlyLeaderboard,
+  getGlobalLeaderboard,
+  getUserRank,
+} from "./services/leaderboard.service";
 import { auth } from "./lib/auth";
+
+// Auth middleware helper
+async function requireAuth(c: Context) {
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session) {
+    throw new HTTPException(401, { message: "Unauthorized" });
+  }
+  return session;
+}
 
 const app = new Hono();
 
@@ -67,8 +99,9 @@ app.get("/masjids/:id", async (c) => {
   return c.json(masjid);
 });
 
-// 1b. Check-in to a specific masjid
+// 1b. Check-in to a specific masjid (authenticated)
 app.post("/masjids/:id/checkin", async (c) => {
+  const session = await requireAuth(c);
   const masjidId = c.req.param("id");
   const body = await c.req.json<{ lat: number; lng: number }>();
 
@@ -76,14 +109,44 @@ app.post("/masjids/:id/checkin", async (c) => {
     return c.json({ success: false, message: "lat and lng are required" }, 400);
   }
 
-  const result = await checkinToMasjid(masjidId, body.lat, body.lng);
+  const result = await performCheckin(
+    session.user.id,
+    masjidId,
+    body.lat,
+    body.lng
+  );
 
   if (!result.success) {
-    const status = result.message === "Masjid not found" ? 404 : 403;
+    const status = result.message === "Masjid not found" ? 404 : 400;
     return c.json(result, status);
   }
 
   return c.json(result);
+});
+
+// 1c. Check-out from current masjid (authenticated)
+app.post("/masjids/:id/checkout", async (c) => {
+  const session = await requireAuth(c);
+  const body = await c.req.json<{ lat: number; lng: number }>();
+
+  if (!body.lat || !body.lng) {
+    return c.json({ success: false, message: "lat and lng are required" }, 400);
+  }
+
+  const result = await performCheckout(session.user.id, body.lat, body.lng);
+
+  if (!result.success) {
+    return c.json(result, 400);
+  }
+
+  return c.json(result);
+});
+
+// 1d. Get masjid stats
+app.get("/masjids/:id/stats", async (c) => {
+  const masjidId = c.req.param("id");
+  const stats = await getMasjidStats(masjidId);
+  return c.json(stats);
 });
 
 // 3. Get masjids by state
@@ -99,6 +162,122 @@ app.get("/states/:stateCode/districts/:districtCode/masjids", async (c) => {
     c.req.param("districtCode")
   );
   return c.json(masjids);
+});
+
+// ============ User Profile Endpoints ============
+
+// Get current user's gamification profile
+app.get("/api/user/profile", async (c) => {
+  const session = await requireAuth(c);
+  const profile = await getUserProfileWithUser(session.user.id);
+
+  if (!profile) {
+    // Create profile if doesn't exist
+    const newProfile = await getOrCreateUserProfile(session.user.id);
+    const fullProfile = await getUserProfileWithUser(session.user.id);
+    return c.json(fullProfile);
+  }
+
+  // Include user's rank
+  const rank = await getUserRank(session.user.id);
+
+  return c.json({
+    ...profile,
+    rank,
+  });
+});
+
+// Update user profile settings
+app.put("/api/user/profile", async (c) => {
+  const session = await requireAuth(c);
+  const body = await c.req.json<{
+    showFullNameInLeaderboard?: boolean;
+    leaderboardAlias?: string;
+  }>();
+
+  const updated = await updateUserProfile(session.user.id, body);
+
+  if (!updated) {
+    return c.json({ error: "Profile not found" }, 404);
+  }
+
+  return c.json(updated);
+});
+
+// ============ User Check-in Endpoints ============
+
+// Get user's check-in history
+app.get("/api/user/checkins", async (c) => {
+  const session = await requireAuth(c);
+  const limit = parseInt(c.req.query("limit") || "20");
+  const offset = parseInt(c.req.query("offset") || "0");
+
+  const checkins = await getCheckinHistory(session.user.id, limit, offset);
+  return c.json(checkins);
+});
+
+// Get current active check-in
+app.get("/api/user/checkins/active", async (c) => {
+  const session = await requireAuth(c);
+  const activeCheckin = await getActiveCheckinByUserId(session.user.id);
+
+  if (!activeCheckin) {
+    return c.json({ active: false, checkIn: null });
+  }
+
+  return c.json({ active: true, checkIn: activeCheckin });
+});
+
+// ============ Achievement Endpoints ============
+
+// Get all achievement definitions (public)
+app.get("/api/achievements", async (c) => {
+  const achievements = await getAllAchievements();
+  return c.json(achievements);
+});
+
+// Get user's achievement progress
+app.get("/api/user/achievements", async (c) => {
+  const session = await requireAuth(c);
+  const achievements = await getUserAchievements(session.user.id);
+  return c.json(achievements);
+});
+
+// ============ Leaderboard Endpoints ============
+
+// Get monthly leaderboard (public)
+app.get("/api/leaderboard/monthly", async (c) => {
+  const limit = parseInt(c.req.query("limit") || "8");
+
+  // Optionally include current user context if authenticated
+  let currentUserId: string | undefined;
+  try {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    currentUserId = session?.user?.id;
+  } catch {
+    // Not authenticated, continue without user context
+  }
+
+  const leaderboard = await getMonthlyLeaderboard(limit, currentUserId);
+  return c.json(leaderboard);
+});
+
+// Get global leaderboard with pagination (public)
+app.get("/api/leaderboard/global", async (c) => {
+  const limit = parseInt(c.req.query("limit") || "20");
+  const offset = parseInt(c.req.query("offset") || "0");
+
+  // Optionally include current user context if authenticated
+  let currentUserId: string | undefined;
+  try {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    currentUserId = session?.user?.id;
+  } catch {
+    // Not authenticated, continue without user context
+  }
+
+  const result = await getGlobalLeaderboard(limit, offset, currentUserId);
+  return c.json(result);
 });
 
 export const handler = handle(app);
