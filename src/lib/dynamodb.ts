@@ -4,4 +4,5 @@ import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({});
 export const dynamodb = DynamoDBDocumentClient.from(client);
-export const TABLE_NAME = Resource.MasjidDirectory.name;
+export const TABLE_NAME =
+  process.env.MASJID_TABLE_NAME || Resource.MasjidDirectory.name;

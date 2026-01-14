@@ -2,7 +2,7 @@
   "name": "project-masjid-backend",
   "type": "module",
   "scripts": {
-    "dev": "sst dev",
+    "dev": "MASJID_TABLE_NAME=project-masjid-backend-production-MasjidDirectoryTable-rvdnzkmz AWS_PROFILE=hakimtech AWS_REGION=ap-southeast-1 sst dev",
     "deploy": "sst deploy --stage dev",
     "deploy:prod": "sst deploy --stage production",
     "remove": "sst remove",

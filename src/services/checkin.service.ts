@@ -72,7 +72,7 @@ export async function performCheckin(
       and(eq(checkIn.userProfileId, profile.id), eq(checkIn.masjidId, masjidId))
     );
 
-  const isFirstVisit = previousVisits[0].count === 0;
+  const isFirstVisit = Number(previousVisits[0].count) === 0;
 
   // TODO: Check if prayer time (would need prayer time API/calculation)
   const isPrayerTime = false;
