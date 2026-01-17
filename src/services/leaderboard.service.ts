@@ -84,7 +84,7 @@ export async function getGlobalLeaderboard(
 
   return {
     entries,
-    total: countResult[0]?.count || 0,
+    total: Number(countResult[0]?.count || 0),
   };
 }
 
@@ -118,8 +118,8 @@ export async function getUserRank(
     .where(sql`${userProfile.monthlyPoints} > ${userMonthlyPoints}`);
 
   return {
-    globalRank: (globalRankResult[0]?.count || 0) + 1,
-    monthlyRank: (monthlyRankResult[0]?.count || 0) + 1,
+    globalRank: (Number(globalRankResult[0]?.count || 0) + 1),
+    monthlyRank: (Number(monthlyRankResult[0]?.count || 0) + 1),
   };
 }
 

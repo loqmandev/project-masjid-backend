@@ -7,7 +7,7 @@
     "deploy:prod": "sst deploy --stage production",
     "remove": "sst remove",
     "seed": "tsx scripts/seed-masjids.ts",
-    "seed:achievements": "tsx scripts/seed-achievements.ts",
+    "seed:achievements": "tsx --env-file=.env scripts/seed-achievements.ts",
     "update:checkin-radius": "tsx scripts/update-checkin-radius.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
