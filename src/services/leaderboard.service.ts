@@ -14,6 +14,14 @@ export interface LeaderboardEntry {
   isCurrentUser?: boolean;
 }
 
+// censor name
+function censorName(name: string): string {
+  if (name.length <= 2) {
+    return name[0] + "*".repeat(name.length - 1);
+  }
+  return name[0] + "*".repeat(name.length - 2) + name[name.length - 1];
+}
+
 // Get monthly leaderboard
 export async function getMonthlyLeaderboard(
   limit: number = 8,
@@ -36,9 +44,7 @@ export async function getMonthlyLeaderboard(
 
   return results.map((row, index) => ({
     rank: index + 1,
-    displayName: row.showFullNameInLeaderboard
-      ? row.userName
-      : row.leaderboardAlias || "Anonymous",
+    displayName: row.leaderboardAlias || censorName(row.userName),
     points: row.monthlyPoints,
     masjidsVisited: row.uniqueMasjidsVisited,
     isCurrentUser: currentUserId ? row.userId === currentUserId : undefined,
@@ -74,9 +80,7 @@ export async function getGlobalLeaderboard(
 
   const entries = results.map((row, index) => ({
     rank: offset + index + 1,
-    displayName: row.showFullNameInLeaderboard
-      ? row.userName
-      : row.leaderboardAlias || "Anonymous",
+    displayName: row.leaderboardAlias || censorName(row.userName),
     points: row.totalPoints,
     masjidsVisited: row.uniqueMasjidsVisited,
     isCurrentUser: currentUserId ? row.userId === currentUserId : undefined,
@@ -179,9 +183,7 @@ export async function createMonthlySnapshot(): Promise<void> {
       rank: i + 1,
       totalPoints: profile.monthlyPoints,
       masjidsVisited: profile.uniqueMasjidsVisited,
-      displayName: profile.showFullNameInLeaderboard
-        ? profile.userName
-        : profile.leaderboardAlias || "Anonymous",
+      displayName: profile.leaderboardAlias || censorName(profile.userName),
       isAnonymous: !profile.showFullNameInLeaderboard,
     });
   }
